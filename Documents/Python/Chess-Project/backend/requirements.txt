@@ -1,0 +1,6 @@
+Flask
+python-chess
+flask-sock
+gunicorn
+gevent
+gevent-websocket

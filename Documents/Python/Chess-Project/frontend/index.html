@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Glass Chess</title>
+    <link rel="preconnect" href="https://upload.wikimedia.org" crossorigin />
+    <link rel="preconnect" href="https://commons.wikimedia.org" crossorigin />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="bg"></div>
+
+    <main class="app">
+      <header class="topbar glass">
+        <div class="brand">
+          <div class="brand-title">Glass Chess</div>
+          <div class="brand-sub">Backend-validated • Smooth UI</div>
+        </div>
+        <div class="topbar-actions">
+          <button class="btn" id="btnPlayPerson" type="button">Play vs person</button>
+          <button class="btn btn--ghost" id="btnPlayComputer" type="button">Play vs computer</button>
+          <button class="btn btn--ghost" id="btnNewGame" type="button">Local reset</button>
+          <button class="btn btn--ghost" id="btnFlip" type="button">Flip</button>
+          <button class="btn btn--ghost" id="btnAssessment" type="button">ELO assessment</button>
+          <button class="btn btn--ghost" id="btnSettings" type="button">Settings</button>
+        </div>
+      </header>
+
+      <section class="content">
+        <section class="board-card glass" aria-label="Chessboard panel">
+          <div class="board-wrap">
+            <div class="board" id="board" aria-label="Chessboard" role="application"></div>
+            <div class="board-footer">
+              <div class="pill" id="pillTurn">Turn: —</div>
+              <div class="pill pill--status" id="pillStatus">Status: —</div>
+              <div class="pill pill--elo" id="pillElo">ELO: —</div>
+            </div>
+          </div>
+        </section>
+
+        <aside class="side glass" aria-label="Side panel">
+          <section class="panel">
+            <div class="panel-title-row">
+              <h2 class="panel-title">Game</h2>
+              <div class="panel-actions">
+                <button class="icon-btn" id="btnCopyFEN" type="button" title="Copy FEN">
+                  Copy FEN
+                </button>
+              </div>
+            </div>
+            <div class="meta">
+              <div class="status-line" id="statusLine">Create a new game to start.</div>
+              <div class="muted" id="fenLine"></div>
+            </div>
+          </section>
+
+          <section class="panel moves">
+            <h2 class="panel-title">Moves</h2>
+            <ol class="move-list" id="moveList"></ol>
+          </section>
+
+          <section class="panel">
+            <h2 class="panel-title">Assessment</h2>
+            <div class="assessment">
+              <div class="muted" id="assessmentHint">
+                Run the 3-puzzle assessment to calibrate an estimated ELO stored locally.
+              </div>
+              <div class="assessment-row">
+                <button class="btn" id="btnStartAssessment" type="button">Start (3 puzzles)</button>
+                <button class="btn btn--ghost" id="btnExitAssessment" type="button" disabled>
+                  Exit
+                </button>
+              </div>
+              <div class="assessment-progress" id="assessmentProgress"></div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <h2 class="panel-title">Multiplayer</h2>
+            <div class="assessment">
+              <div class="muted" id="mpStatus">Not connected.</div>
+              <div class="assessment-row">
+                <button class="btn" id="btnCreateRoom" type="button">Create room</button>
+                <button class="btn btn--ghost" id="btnJoinRoom" type="button">Join</button>
+              </div>
+              <div class="assessment-row">
+                <input class="text-input" id="roomCodeInput" placeholder="Room code" maxlength="8" />
+              </div>
+              <div class="assessment-progress" id="mpRoomLine"></div>
+            </div>
+          </section>
+        </aside>
+      </section>
+    </main>
+
+    <div class="toast" id="toast" aria-live="polite" aria-atomic="true"></div>
+
+    <div class="modal" id="settingsModal" aria-hidden="true">
+      <div class="modal-backdrop" id="settingsBackdrop"></div>
+      <div class="modal-card glass" role="dialog" aria-modal="true" aria-label="Settings">
+        <div class="modal-header">
+          <div class="modal-title">Settings</div>
+          <button class="icon-btn" id="btnCloseSettings" type="button">Close</button>
+        </div>
+        <div class="modal-body">
+          <label class="field">
+            <span class="field-label">Theme</span>
+            <select class="select" id="themeSelect">
+              <option value="glass">Glass</option>
+              <option value="classic">Classic</option>
+              <option value="emerald">Emerald</option>
+              <option value="solar">Solar</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span class="field-label">Display name</span>
+            <input class="text-input" id="nameInput" placeholder="e.g. Sales" maxlength="24" />
+          </label>
+
+          <label class="field">
+            <span class="field-label">Backend URL (for Netlify)</span>
+            <input
+              class="text-input"
+              id="backendUrlInput"
+              placeholder="e.g. https://your-backend.onrender.com"
+              maxlength="200"
+            />
+          </label>
+
+          <label class="check">
+            <input type="checkbox" id="toggleCoords" />
+            <span>Show coordinates</span>
+          </label>
+
+          <label class="check">
+            <input type="checkbox" id="toggleReducedMotion" />
+            <span>Reduced motion</span>
+          </label>
+        </div>
+        <div class="modal-footer">
+          <button class="btn" id="btnSaveSettings" type="button">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="game.js" defer></script>
+  </body>
+</html>
