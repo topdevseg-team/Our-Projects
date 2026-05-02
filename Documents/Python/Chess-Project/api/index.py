@@ -8,7 +8,7 @@ import string
 
 import chess
 from flask import Flask, jsonify, request
-from flask_sock import Sock
+from flask_cors import CORS
 
 
 FRONTEND_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "frontend"))
