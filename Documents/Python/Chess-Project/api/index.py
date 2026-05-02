@@ -1,17 +1,12 @@
 import os
 import threading
 import uuid
-from dataclasses import dataclass
-import json
 import random
-import string
-
 import chess
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
-# WebSocket (flask-sock) is removed because Vercel doesn't support persistent connections.
-# The FRONTEND_DIR is set to look for your 'public' folder.
+# Look for the 'public' folder where your HTML/CSS/JS live
 FRONTEND_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "public"))
 
 @dataclass
@@ -20,107 +15,72 @@ class Game:
     last_move_uci: str | None = None
 
 _games_lock = threading.Lock()
-_games: dict[str, Game] = {}
+_games = {}
 
-def _turn_char(board: chess.Board) -> str:
-    return "w" if board.turn == chess.WHITE else "b"
-
-def _status_string(board: chess.Board) -> str:
-    outcome = board.outcome(claim_draw=True)
-    if outcome is not None:
-        return "draw" if outcome.winner is None else "checkmate"
-    return "check" if board.is_check() else "playing"
-
-def _board_summary(game: Game) -> dict:
+def _board_summary(game):
     board = game.board
-    outcome = board.outcome(claim_draw=True)
     return {
         "fen": board.fen(),
-        "turn": _turn_char(board),
-        "status": _status_string(board),
+        "turn": "w" if board.turn == chess.WHITE else "b",
+        "status": "checkmate" if board.is_checkmate() else "check" if board.is_check() else "playing",
         "lastMoveUci": game.last_move_uci,
         "legalUciMoves": [m.uci() for m in board.legal_moves],
     }
 
-def _choose_ai_move(board: chess.Board) -> chess.Move | None:
-    moves = list(board.legal_moves)
-    if not moves: return None
-    best = []
-    best_score = -10**9
-    for m in moves:
-        score = 50 if board.is_capture(m) else 0
-        board.push(m)
-        if board.is_checkmate(): score += 10000
-        elif board.is_check(): score += 30
-        score += random.randint(0, 5)
-        board.pop()
-        if score > best_score:
-            best_score = score
-            best = [m]
-        elif score == best_score:
-            best.append(m)
-    return random.choice(best) if best else random.choice(moves)
-
-def _error(code: str, message: str, http_status: int = 400):
-    return jsonify({"ok": False, "error": code, "message": message}), http_status
-
-def create_app() -> Flask:
+def create_app():
     app = Flask(__name__, static_folder=FRONTEND_DIR, static_url_path="")
     CORS(app)
 
     @app.route("/api/game/create", methods=["POST"])
     def api_game_create():
-        body = request.get_json(silent=True) or {}
-        fen = body.get("fen")
-        try:
-            board = chess.Board(fen) if fen else chess.Board()
-        except:
-            return _error("invalid_fen", "Invalid FEN.")
         game_id = uuid.uuid4().hex
         with _games_lock:
-            _games[game_id] = Game(board=board)
-        payload = {"ok": True, "gameId": game_id}
-        payload.update(_board_summary(_games[game_id]))
-        return jsonify(payload)
+            _games[game_id] = Game(board=chess.Board())
+        res = {"ok": True, "gameId": game_id}
+        res.update(_board_summary(_games[game_id]))
+        return jsonify(res)
+
+    @app.route("/api/game/state", methods=["GET"])
+    def api_game_state():
+        gid = request.args.get("gameId")
+        game = _games.get(gid)
+        if not game: return jsonify({"ok": False}), 404
+        res = {"ok": True, "gameId": gid}
+        res.update(_board_summary(game))
+        return jsonify(res)
 
     @app.route("/api/game/move", methods=["POST"])
     def api_game_move():
-        body = request.get_json(silent=True) or {}
-        game_id, uci = body.get("gameId"), body.get("uci")
-        with _games_lock:
-            game = _games.get(game_id)
-            if not game: return _error("unknown_game", "Unknown Game ID", 404)
-            try:
-                move = chess.Move.from_uci(uci)
-                if move in game.board.legal_moves:
-                    game.board.push(move)
-                    game.last_move_uci = uci
-                else:
-                    return _error("illegal_move", "Illegal Move")
-            except:
-                return _error("invalid_uci", "Invalid UCI")
-            payload = {"ok": True, "gameId": game_id}
-            payload.update(_board_summary(game))
-            return jsonify(payload)
+        data = request.json
+        gid, uci = data.get("gameId"), data.get("uci")
+        game = _games.get(gid)
+        if not game: return jsonify({"ok": False}), 404
+        try:
+            move = chess.Move.from_uci(uci)
+            if move in game.board.legal_moves:
+                game.board.push(move)
+                game.last_move_uci = uci
+                res = {"ok": True}
+                res.update(_board_summary(game))
+                return jsonify(res)
+        except: pass
+        return jsonify({"ok": False, "message": "Invalid move"}), 400
 
     @app.route("/api/game/ai_move", methods=["POST"])
-    def api_game_ai_move():
-        body = request.get_json(silent=True) or {}
-        game_id = body.get("gameId")
-        with _games_lock:
-            game = _games.get(game_id)
-            if not game: return _error("unknown_game", "Unknown Game ID", 404)
-            move = _choose_ai_move(game.board)
-            if move:
-                game.board.push(move)
-                game.last_move_uci = move.uci()
-            payload = {"ok": True, "gameId": game_id, "aiMoveUci": game.last_move_uci}
-            payload.update(_board_summary(game))
-            return jsonify(payload)
+    def api_ai():
+        gid = request.json.get("gameId")
+        game = _games.get(gid)
+        if not game or game.board.is_game_over(): return jsonify({"ok": False}), 400
+        move = random.choice(list(game.board.legal_moves))
+        game.board.push(move)
+        game.last_move_uci = move.uci()
+        res = {"ok": True, "aiMoveUci": move.uci()}
+        res.update(_board_summary(game))
+        return jsonify(res)
 
     return app
 
-# CRITICAL: This variable MUST be named 'app' and be at the top level for Vercel
+# MUST BE OUTSIDE THE IF BLOCK FOR VERCEL
 app = create_app()
 
 if __name__ == "__main__":
